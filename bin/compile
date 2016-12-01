@@ -21,6 +21,8 @@ RED='\033[1;31m'
 NC='\033[0m' # No Color
 CURL="curl -s -L --retry 15 --retry-delay 2" # retry for up to 30 seconds
 
+BucketURL="https://heroku-golang-prod.s3.amazonaws.com/"
+
 DefaultGoVersion="go1.7.4"
 GlideVersion="v0.12.2"
 GovendorVersion="1.0.8"
@@ -35,7 +37,7 @@ GO_LINKER_VALUE=${SOURCE_VERSION}
 # For older version of Go we need to keep concurrency.sh
 needConcurrency() {
   case $1 in
-    go1.7*|go1.6*)
+    go1.8*|go1.7*|go1.6*)
       return 1
       ;;
     *)
@@ -80,24 +82,17 @@ massagePkgSpecForVendor() {
     pkgs="${t}"
 }
 
-# Go releases have moved to a new URL scheme
-# starting with Go version 1.2.2. Return the old
-# location for known old versions and the new
-# location otherwise.
+# TODO: go1 is missing from storage.googleapis.com and we haven't manually compiled it yet
 urlFor() {
     local ver=$1
     case $ver in
-    go1.0*|go1.1beta*|go1.1rc*|go1.1|go1.1.*|go1.2beta*|go1.2rc*|go1.2|go1.2.1)
-        local file=${GOFILE:-$ver.linux-amd64.tar.gz}
-        echo https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/go/$file
-        ;;
     devel*)
         local sha=$(echo $ver | cut -d - -f 2)  #assumes devel-<short sha> or devel-<full sha>
         echo https://github.com/golang/go/archive/$sha.tar.gz
     ;;
     *)
         local file=${GOFILE:-$ver.linux-amd64.tar.gz}
-        echo https://storage.googleapis.com/golang/$file
+        echo ${BucketURL}${file}
         ;;
     esac
 }
@@ -106,6 +101,8 @@ urlFor() {
 # All specific or other versions, take as is.
 expandVer() {
   case $1 in
+    go1.8)
+      echo "go1.8beta1"
     go1.7)
       echo "go1.7.4"
       ;;
@@ -334,7 +331,7 @@ FLAGS=(-tags heroku)
 if [ -n "${GO_LINKER_SYMBOL}" -a -n "${GO_LINKER_VALUE}" ]
 then
     case $ver in
-    go1.5*|go1.6*|go1.7*)
+    go1.5*|go1.6*|go1.7*|go1.8*)
         xval="${GO_LINKER_SYMBOL}=${GO_LINKER_VALUE}"
         ;;
     *)
@@ -382,13 +379,12 @@ case ${TOOL} in
                 VendorExperiment="true"
             fi
         ;;
-        go1.7*)
+        go1.7*|go1.8*)
           if test -n "$GO15VENDOREXPERIMENT"
           then
             err ""
-            err "GO15VENDOREXPERIMENT is set, but is not supported by go1.7"
-            err "run `heroku config:unset GO15VENDOREXPERIMENT`"
-            err "before pushing again."
+            err "GO15VENDOREXPERIMENT is set, but is not supported by go versions >= go1.7"
+            err "run `heroku config:unset GO15VENDOREXPERIMENT` before pushing again."
             err ""
             exit 1
           fi
