@@ -14,6 +14,8 @@ RED='\033[1;31m'
 NC='\033[0m' # No Color
 CURL="curl -s -L --retry 15 --retry-delay 2" # retry for up to 30 seconds
 
+BucketURL="https://heroku-golang-prod.s3.amazonaws.com/"
+
 warn() {
     echo -e "${YELLOW} !!    $@${NC}"
 }
@@ -32,6 +34,17 @@ start() {
 
 finished() {
     echo "done"
+}
+
+ensureJQ() {
+  local JQDir="${1}"
+  mkdir -p ${JQDir}
+  pushd "${JQDir}" &> /dev/null
+  
+    ${CURL} "${BucketURL}jq-linux64"
+    mv "jq-linux64" "jq"
+    PATH="${JQDir}:${PATH}"
+  popd &> /dev/null
 }
 
 loadEnvDir() {
