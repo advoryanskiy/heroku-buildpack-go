@@ -4,6 +4,12 @@
 # load environment variables
 # allow apps to specify cgo flags. The literal text '${build_dir}' is substituted for the build directory
 
+if [ -z "${buildpack}" ]; then
+  buildpack=$(cd "$(dirname $0)/.." && pwd)
+fi
+
+DataJSON="${buildpack}/data.json"
+FileJSON="${buildpack}/files.json"
 godepsJSON="${build}/Godeps/Godeps.json"
 vendorJSON="${build}/vendor/vendor.json"
 glideYAML="${build}/glide.yaml"
@@ -14,7 +20,12 @@ RED='\033[1;31m'
 NC='\033[0m' # No Color
 CURL="curl -s -L --retry 15 --retry-delay 2" # retry for up to 30 seconds
 
-BucketURL="https://heroku-golang-prod.s3.amazonaws.com/"
+BucketURL="https://heroku-golang-prod.s3.amazonaws.com"
+
+TOOL=""
+# Default to $SOURCE_VERSION environment variable: https://devcenter.heroku.com/articles/buildpack-api#bin-compile
+GO_LINKER_VALUE=${SOURCE_VERSION}
+
 
 warn() {
     echo -e "${YELLOW} !!    $@${NC}"
@@ -36,15 +47,33 @@ finished() {
     echo "done"
 }
 
-ensureJQ() {
+downloadJQ() {
   local JQDir="${1}"
   mkdir -p ${JQDir}
   pushd "${JQDir}" &> /dev/null
-  
-    ${CURL} "${BucketURL}jq-linux64"
-    mv "jq-linux64" "jq"
-    PATH="${JQDir}:${PATH}"
+    start "Fetching jq"
+      ${CURL} -O "${BucketURL}/jq-linux64"
+      mv "jq-linux64" "jq"
+      chmod a+x jq
+    finished
   popd &> /dev/null
+}
+
+ensureJQ() {
+  local JQDir="${1}"
+  local JQBin="${JQDir}/jq"
+  if echo "$PATH" | grep -v "${JQDir}" &> /dev/null; then
+    PATH="${JQDir}:${PATH}"
+  fi
+  if [ ! -x "${JQBin}" ]; then
+    downloadJQ "${JQDir}"
+  fi
+  local sw="$(< "${FileJSON}" jq -r '."jq-linux64".SHA')"
+  local sh="$(shasum -a256 "${JQBin}" | cut -d \  -f 1)"
+  if [ "${sw}" != "${sh}" ]; then
+    rm -f "${JQBin}"
+    downloadJQ "${JQDir}"
+  fi
 }
 
 loadEnvDir() {

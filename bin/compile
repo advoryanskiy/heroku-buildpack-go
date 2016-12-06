@@ -7,45 +7,23 @@ mkdir -p "$1" "$2"
 build=$(cd "$1/" && pwd)
 cache=$(cd "$2/" && pwd)
 env_dir="${3}"
+
 buildpack=$(cd "$(dirname $0)/.." && pwd)
-arch=$(uname -m|tr A-Z a-z)
-# if test $arch = x86_64
-# then arch=amd64
-# fi
-# plat=$(uname|tr A-Z a-z)-$arch
-# PATH=$buildpack/$plat/bin:$PATH
+source "${buildpack}/lib/common.sh"
+ensureJQ "${cache}/.jq/bin"
 
-# steptxt="----->"
-# YELLOW='\033[1;33m'
-# RED='\033[1;31m'
-# NC='\033[0m' # No Color
-# CURL="curl -s -L --retry 15 --retry-delay 2" # retry for up to 30 seconds
-
-# BucketURL="https://heroku-golang-prod.s3.amazonaws.com/"
-
-DataFile="${buildpack}/data.json"
-
-DefaultGoVersion="go1.7.4"
-GlideVersion="v0.12.2"
-GovendorVersion="1.0.8"
-GBVersion="0.4.3"
+DefaultGoVersion="$(<${DataJSON} jq -r '.Go.DefaultVersion')"
+GlideVersion="$(<${DataJSON} jq -r '.Glide.DefaultVersion')"
+GovendorVersion="$(<${DataJSON} jq -r '.Govendor.DefaultVersion')"
+GBVersion="$(<${DataJSON} jq -r '.GB.DefaultVersion')"
 PkgErrorsVersion="0.7.1"
 MercurialVersion="3.9"
 # BazaarVersion="2.7.0"
-TOOL=""
-# Default to $SOURCE_VERSION environment variable: https://devcenter.heroku.com/articles/buildpack-api#bin-compile
-GO_LINKER_VALUE=${SOURCE_VERSION}
 
-# For older version of Go we need to keep concurrency.sh
+# For specified versions of Go we need to keep concurrency.sh
 needConcurrency() {
-  case $1 in
-    go1.8*|go1.7*|go1.6*)
-      return 1
-      ;;
-    *)
-      return 0
-      ;;
-  esac
+  <"${DataJSON}" jq -e '.Go.NeedsConcurrency | indices(["'${1}'"]) | length | if . == 0 then false else true end' &> /dev/null
+  return $?
 }
 
 handleDefaultPkgSpec() {
@@ -89,12 +67,12 @@ urlFor() {
     local ver=$1
     case $ver in
     devel*)
-        local sha=$(echo $ver | cut -d - -f 2)  #assumes devel-<short sha> or devel-<full sha>
+        local sha=$(echo ${ver} | cut -d - -f 2)  #assumes devel-<short sha> or devel-<full sha>
         echo https://github.com/golang/go/archive/$sha.tar.gz
     ;;
     *)
-        local file=${GOFILE:-$ver.linux-amd64.tar.gz}
-        echo ${BucketURL}${file}
+        local file="${ver}.linux-amd64.tar.gz"
+        echo ${BucketURL}/${file}
         ;;
     esac
 }
@@ -102,30 +80,30 @@ urlFor() {
 # Expand to supported versions of Go, see data.json for supported expansions.
 # All others are returned as is.
 expandVer() {
-    echo $(<${DataFile} jq -r 'if .Go.VersionExpansion."'${1}'" then .Go.VersionExpansion."'${1}'" else "'${1}'" end')
+    echo $(<${DataJSON} jq -r 'if .Go.VersionExpansion."'${1}'" then .Go.VersionExpansion."'${1}'" else "'${1}'" end')
 }
 
 # Report deprecated versions to user
 # Use after expandVer
 reportVer() {
+  if <"${DataJSON}" jq -e '.Go.Supported | indices(["'${1}'"]) | length | if . > 0 then true else false end' &> /dev/null; then
+    return
+  fi
   case $1 in
-    go1.7.4|go1.6.4)
-      # Noop
+  devel*)
+    warn ""
+    warn "You are using a development build of Go."
+    warn "This is provided for users requiring an unreleased Go version"
+    warn "but is otherwise unsupported."
+    warn ""
+    warn "Build tests are NOT RUN!!"
+    warn ""
     ;;
-    devel*)
-      warn ""
-      warn "You are using a development build of Go."
-      warn "This is provided for users requiring an unreleased Go version"
-      warn "but is otherwise unsupported."
-      warn ""
-      warn "Build tests are NOT RUN!!"
-      warn ""
-    ;;
-    *)
-      warn ""
-      warn "Deprecated or unsupported version of go ($1)"
-      warn "See https://devcenter.heroku.com/articles/go-support#go-versions for supported version information."
-      warn ""
+  *)
+    warn ""
+    warn "Deprecated or unsupported version of go ($1)"
+    warn "See https://devcenter.heroku.com/articles/go-support#go-versions for supported version information."
+    warn ""
     ;;
   esac
 }
@@ -256,10 +234,6 @@ setupGOPATH() {
     echo "src=${src}"
 }
 
-source "${buildpack}/lib/common.sh"
-ensureJQ "${cache}/jq/bin"
-echo $PATH
-exit 0
 loadEnvDir "${env_dir}"
 determineTool
 
@@ -318,11 +292,11 @@ FLAGS=(-tags heroku)
 if [ -n "${GO_LINKER_SYMBOL}" -a -n "${GO_LINKER_VALUE}" ]
 then
     case $ver in
-    go1.5*|go1.6*|go1.7*|go1.8*)
-        xval="${GO_LINKER_SYMBOL}=${GO_LINKER_VALUE}"
+    go1.0*|go1.1*|go1.2*|go1.3*|go1.4*)
+        xval="${GO_LINKER_SYMBOL} ${GO_LINKER_VALUE}"
         ;;
     *)
-        xval="${GO_LINKER_SYMBOL} ${GO_LINKER_VALUE}"
+        xval="${GO_LINKER_SYMBOL}=${GO_LINKER_VALUE}"
         ;;
     esac
     FLAGS=(${FLAGS[@]} -ldflags "-X ${xval}")
@@ -339,6 +313,24 @@ case ${TOOL} in
         pkgs=${GO_INSTALL_PACKAGE_SPEC:-$(<${godepsJSON} jq -r 'if .Packages then .Packages | join(" ") else "default" end')}
         warnPackageSpecOverride
         handleDefaultPkgSpec
+
+        if <"${DataJSON}" jq -e '.Go.SupportsVendorExperiment | indices(["'${ver}'"]) | length | if . == 0 then false else true end' &> /dev/null; then
+          echo "Supports Vendor Experiment"
+          if [ -d "${src}/Godeps/_workspace/src" ]; then
+            warn ""
+            warn "Godep Workspace (Godpes/_workspace/src) detected disabling the vendor experiment"
+            warn ""
+            VendorExperiment=false
+            GO15VENDOREXPERIMENT=0
+          fi
+          if [ "${GO15VENDOREXPERIMENT}" = "1" ]; then
+            VendorExperiment=true
+          fi
+        else
+          if [ -n "${GO15VENDOREXPERIMENT}" ]; then
+          fi
+          VendorExperiment=false
+        fi
 
         case $ver in
         go1.5*)
