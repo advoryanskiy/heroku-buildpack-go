@@ -315,64 +315,24 @@ case ${TOOL} in
         handleDefaultPkgSpec
 
         if <"${DataJSON}" jq -e '.Go.SupportsVendorExperiment | indices(["'${ver}'"]) | length | if . == 0 then false else true end' &> /dev/null; then
-          echo "Supports Vendor Experiment"
+          GO15VENDOREXPERIMENT=1
           if [ -d "${src}/Godeps/_workspace/src" ]; then
             warn ""
             warn "Godep Workspace (Godpes/_workspace/src) detected disabling the vendor experiment"
             warn ""
-            VendorExperiment=false
             GO15VENDOREXPERIMENT=0
-          fi
-          if [ "${GO15VENDOREXPERIMENT}" = "1" ]; then
-            VendorExperiment=true
           fi
         else
           if [ -n "${GO15VENDOREXPERIMENT}" ]; then
+            warn ""
+            warn "GO15VENDOREXPERIMENT=${GO15VENDOREXPERIMENT}, but the selected go version (${ver}) does not support the \$GO15VENDOREXPERIMENT flag"
+            warn "unsetting GO15VENDOREXPERIMENT for this build"
+            warn ""
+            warn "You should unset this config var by running: `heroku config:unset GO15VENDOREXPERIMENT`"
+            warn ""
           fi
-          VendorExperiment=false
+          unset GO15VENDOREXPERIMENT
         fi
-
-        case $ver in
-        go1.5*)
-            if test "$GO15VENDOREXPERIMENT" = "1"
-            then
-                warn ""
-                warn "\$GO15VENDOREXPERIMENT=1. This is an experiment. Things may not work as expected."
-                warn "See https://devcenter.heroku.com/articles/go-support#go-1-5-vendor-experiment for more info."
-                warn ""
-                if test ! -d "$build/vendor"
-                then
-                    err ""
-                    err "vendor/ directory does not exist."
-                    err ""
-                    exit 1
-                fi
-                VendorExperiment="true"
-            fi
-        ;;
-        go1.6*)
-            if test "$GO15VENDOREXPERIMENT" = "0" || test -d "${src}/Godeps/_workspace/src"
-            then
-                VendorExperiment="false"
-            else
-                VendorExperiment="true"
-            fi
-        ;;
-        go1.7*|go1.8*)
-          if test -n "$GO15VENDOREXPERIMENT"
-          then
-            err ""
-            err "GO15VENDOREXPERIMENT is set, but is not supported by go versions >= go1.7"
-            err "run `heroku config:unset GO15VENDOREXPERIMENT` before pushing again."
-            err ""
-            exit 1
-          fi
-          VendorExperiment="true"
-        ;;
-        *)
-            VendorExperiment="false"
-        ;;
-        esac
 
         unset GIT_DIR # unset git dir or it will mess with goinstall
         cd "${src}"
