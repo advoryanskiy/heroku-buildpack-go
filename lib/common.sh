@@ -9,7 +9,7 @@ if [ -z "${buildpack}" ]; then
 fi
 
 DataJSON="${buildpack}/data.json"
-FileJSON="${buildpack}/files.json"
+FilesJSON="${buildpack}/files.json"
 godepsJSON="${build}/Godeps/Godeps.json"
 vendorJSON="${build}/vendor/vendor.json"
 glideYAML="${build}/glide.yaml"
@@ -62,18 +62,34 @@ downloadJQ() {
 ensureJQ() {
   local JQDir="${1}"
   local JQBin="${JQDir}/jq"
-  if echo "$PATH" | grep -v "${JQDir}" &> /dev/null; then
+  if echo "${PATH}" | grep -v "${JQDir}" &> /dev/null; then
     PATH="${JQDir}:${PATH}"
   fi
   if [ ! -x "${JQBin}" ]; then
-    downloadJQ "${JQDir}"
+    downloadFile "jq-linux64" "${JQDir}"
   fi
-  local sw="$(< "${FileJSON}" jq -r '."jq-linux64".SHA')"
+  local sw="$(< "${FilesJSON}" jq -r '."jq-linux64".SHA')"
   local sh="$(shasum -a256 "${JQBin}" | cut -d \  -f 1)"
   if [ "${sw}" != "${sh}" ]; then
     rm -f "${JQBin}"
-    downloadJQ "${JQDir}"
+    downloadFile "jq-linux64" "${JQDir}"
   fi
+}
+
+downloadFile() {
+  local fileName="${1}"
+  local targetDir="${2}"
+  mkdir -p "${targetDir}"
+  local localName="$(< "${FilesJSON}" jq -r '."'${fileName}'".LocalName | if . = null then "'${fileName}'" else . end')"
+  pushd "${targetDir}" &> /dev/null
+    start "Fetching ${localName}"
+      ${CURL} -O "${BuketURL}/${fileName}"
+      if [ "${fileName}" != "${localName}" ]; then
+        mv "${fileName}" "${localName}"
+      fi
+      chmod a+x ${localName}
+    finished
+  popd &> /dev/null
 }
 
 loadEnvDir() {

@@ -341,7 +341,7 @@ case "${TOOL}" in
     fi
   ;;
   govendor)
-    govendorPath="${cache}/govendor/${GovendorVersion}/bin"
+    govendorPath="${cache}/govendor/bin"
     govendorBin="${govendorPath}/govendor"
     if [ -d "${govendorBin}" ]; then
       step "Using govendor v${GovendorVersion}"
