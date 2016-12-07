@@ -76,18 +76,23 @@ ensureJQ() {
   fi
 }
 
+determinLocalFileName() {
+  local fileName="${1}"
+  local localName="jq"
+  if [ "${fileName}" != "jq-linux64" ]; then #jq is special cased here because we can't jq until we have jq'
+    localName="$(< "${FilesJSON}" jq -r '."'${fileName}'".LocalName | if . = null then "'${fileName}'" else . end')"
+  fi
+  echo "${localName}"
+}
+
 ensureFile() {
   local fileName="${1}"
   local targetDir="${2}"
+  local localName="$(determinLocalFileName "${fileName}")"
+  local targetBin="${targetDir}/${localName}"
   if echo "${PATH}" | grep -v "${targetDir}" &> /dev/null; then
     PATH="${targetDir}:${PATH}"
   fi
-  if [ "${fileName}" = "jq-linux64" ]; then #jq is special cased here because we can't jq until we have jq'
-    local localName="jq"
-  else
-    local localName="$(< "${FilesJSON}" jq -r '."'${fileName}'".LocalName | if . = null then "'${fileName}'" else . end')"
-  fi
-  local targetBin="${targetDir}/${localName}"
   if [ ! -x "${targetBin}" ]; then
     downloadFile "${fileName}" "${targetDir}"
   fi
@@ -102,12 +107,9 @@ ensureFile() {
 downloadFile() {
   local fileName="${1}"
   local targetDir="${2}"
+  local localName="$(determinLocalFileName "${fileName}")"
+
   mkdir -p "${targetDir}"
-  if [ "${fileName}" = "jq-linux64" ]; then #jq is special cased here because we can't jq until we have jq'
-    local localName="jq"
-  else
-    local localName="$(< "${FilesJSON}" jq -r '."'${fileName}'".LocalName | if . = null then "'${fileName}'" else . end')"
-  fi
   pushd "${targetDir}" &> /dev/null
     start "Fetching ${localName}"
       ${CURL} -O "${BucketURL}/${fileName}"
