@@ -23,6 +23,7 @@ MercurialVersion="3.9"
 # For specified versions of Go we need to keep concurrency.sh
 needConcurrency() {
     <"${DataJSON}" jq -e '.Go.NeedsConcurrency | indices(["'${1}'"]) | length | if . == 0 then false else true end' &> /dev/null
+    return $?
 }
 
 handleDefaultPkgSpec() {
