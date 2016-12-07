@@ -59,6 +59,7 @@ determinLocalFileName() {
 downloadFile() {
     local fileName="${1}"
     local targetDir="${2}"
+    local xCmd="${3}"
     local localName="$(determinLocalFileName "${fileName}")"
     local targetFile="${targetDir}/${localName}"
 
@@ -68,6 +69,9 @@ downloadFile() {
             ${CURL} -O "${BucketURL}/${fileName}"
             if [ "${fileName}" != "${localName}" ]; then
                 mv "${fileName}" "${localName}"
+            fi
+            if [ -n "${xCmd}" ]; then
+                ${xCmd} ${targetFile}
             fi
             if ! SHAValid "${fileName}" "${targetFile}"; then
                 err ""
@@ -91,6 +95,7 @@ SHAValid() {
 ensureFile() {
     local fileName="${1}"
     local targetDir="${2}"
+    local xCmd="${3}"
     local localName="$(determinLocalFileName "${fileName}")"
     local targetFile="${targetDir}/${localName}"
     local download="false"
@@ -100,7 +105,7 @@ ensureFile() {
         download="true"
     fi
     if [ "${download}" = "true" ]; then
-        downloadFile "${fileName}" "${targetDir}"
+        downloadFile "${fileName}" "${targetDir}" "${xCmd}"
     fi
 }
 
@@ -113,8 +118,7 @@ ensureInPath() {
     if echo "${PATH}" | grep -v "${targetDir}" &> /dev/null; then
         PATH="${targetDir}:${PATH}"
     fi
-    ensureFile "${fileName}" "${targetDir}"
-    chmod a+x "${targetFile}"
+    ensureFile "${fileName}" "${targetDir}" "chmod a+x"
 }
 
 loadEnvDir() {
