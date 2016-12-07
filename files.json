@@ -140,5 +140,9 @@
     "glide-v0.12.3-linux-amd64.tar.gz": {
         "URL": "https://github.com/Masterminds/glide/releases/download/v0.12.3/glide-v0.12.3-linux-amd64.tar.gz",
         "SHA": "0e2be5e863464610ebc420443ccfab15cdfdf1c4ab63b5eb25d1216900a75109"
+    },
+    "mercurial-3.9.tar.gz":{
+        "URL": "https://www.mercurial-scm.org/release/mercurial-3.9.tar.gz",
+        "SHA":"834f25dcff44994198fb8a7ba161a6e24204dbd63c8e6270577e06e6cedbdabc"
     }
 }

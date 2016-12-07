@@ -10,7 +10,7 @@ env_dir="${3}"
 
 buildpack=$(cd "$(dirname $0)/.." && pwd)
 source "${buildpack}/lib/common.sh"
-ensureFile "jq-linux64" "${cache}/.jq/bin"
+ensureInPath "jq-linux64" "${cache}/.jq/bin"
 
 DefaultGoVersion="$(<${DataJSON} jq -r '.Go.DefaultVersion')"
 GlideVersion="$(<${DataJSON} jq -r '.Glide.DefaultVersion')"
@@ -23,7 +23,6 @@ MercurialVersion="3.9"
 # For specified versions of Go we need to keep concurrency.sh
 needConcurrency() {
     <"${DataJSON}" jq -e '.Go.NeedsConcurrency | indices(["'${1}'"]) | length | if . == 0 then false else true end' &> /dev/null
-    return $?
 }
 
 handleDefaultPkgSpec() {
@@ -108,11 +107,10 @@ reportVer() {
 }
 
 ensureHG() {
-    local hgv="${1}"
+    local hVersion="${1}"
     local thgp=$(mktemp -d)
-    local hgp="${cache}/hg/${hgv}"
-    #local hgb="${hgp}/hg"
-    if [ -d "${hgp}" ]; then
+    local hgp="${cache}/hg/${hVersion}"
+    if [ -x "${hgp}/bin/hg" ]; then
         step "Using hg v${hgv}"
     else
         rm -rf "${cache}/hg"
@@ -160,7 +158,7 @@ ensureGlide() {
     else
         rm -rf "${cache}/glide"
         start "Installing glide ${glideVersion}"
-            ensureFile "${gFile}" "${gPath}"
+            ensureInPath "${gFile}" "${gPath}"
             local tarFile="${gPath}/${gFile}"
             tar --strip-components=1 -zxf "${tarFile}" -C "${gPath}"
             chmod a+x "${gBin}"
@@ -339,7 +337,7 @@ case "${TOOL}" in
         fi
     ;;
     govendor)
-        ensureFile "govendor_linux_amd64" "${cache}/govendor/bin"
+        ensureInPath "govendor_linux_amd64" "${cache}/govendor/bin"
 
         eval "$(setupGOPATH ${name})"
         vendorJSON="${src}/vendor/vendor.json"

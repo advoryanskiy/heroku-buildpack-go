@@ -34,5 +34,8 @@
   },
   "GB": {
     "DefaultVersion": "0.4.3"
+  },
+  "Mercurial": {
+    "DefaultVersion": "3.9"
   }
 }

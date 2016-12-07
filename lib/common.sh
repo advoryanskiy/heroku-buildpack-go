@@ -51,28 +51,9 @@ determinLocalFileName() {
     local fileName="${1}"
     local localName="jq"
     if [ "${fileName}" != "jq-linux64" ]; then #jq is special cased here because we can't jq until we have jq'
-        localName="$(< "${FilesJSON}" jq -r '."'${fileName}'".LocalName | if . = null then "'${fileName}'" else . end')"
+        localName="$(<"${FilesJSON}" jq -r '."'${fileName}'".LocalName | if . == null then "'${fileName}'" else . end')"
     fi
     echo "${localName}"
-}
-
-ensureFile() {
-    local fileName="${1}"
-    local targetDir="${2}"
-    local localName="$(determinLocalFileName "${fileName}")"
-    local targetBin="${targetDir}/${localName}"
-    if echo "${PATH}" | grep -v "${targetDir}" &> /dev/null; then
-        PATH="${targetDir}:${PATH}"
-    fi
-    if [ ! -x "${targetBin}" ]; then
-        downloadFile "${fileName}" "${targetDir}"
-    fi
-    local sw="$(< "${FilesJSON}" jq -r '."'${fileName}'".SHA')"
-    local sh="$(shasum -a256 "${targetBin}" | cut -d \  -f 1)"
-    if [ "${sw}" != "${sh}" ]; then
-        rm -f "${targetBin}"
-        downloadFile "${fileName}" "${targetDir}"
-    fi
 }
 
 downloadFile() {
@@ -84,12 +65,54 @@ downloadFile() {
     pushd "${targetDir}" &> /dev/null
         start "Fetching ${localName}"
             ${CURL} -O "${BucketURL}/${fileName}"
+            if ! SHAValid "${fileName}" "${targetDir}"; then
+                err ""
+                err "Downloaded file (${fileName}) sha does not match recorded SHA"
+                err "Unable to continue."
+                err ""
+                exit 1
+            fi
             if [ "${fileName}" != "${localName}" ]; then
                 mv "${fileName}" "${localName}"
             fi
-            chmod a+x ${localName}
         finished
     popd &> /dev/null
+}
+
+SHAValid() {
+    local fileName="${1}"
+    local targetDir="${2}"
+    local localName="$(determinLocalFileName "${fileName}")"
+    local targetFile="${targetDir}/${localName}"
+    local sh="$(shasum -a256 "${targetFile}" | cut -d \  -f 1)"
+    <"${FilesJSON}" jq -e '."'${fileName}'".SHA | if . == "'${sh}'" then true else false end' &> /dev/null
+}
+
+ensureFile() {
+    local fileName="${1}"
+    local targetDir="${2}"
+    local localName="$(determinLocalFileName "${fileName}")"
+    local targetFile="${targetDir}/${localName}"
+    local download="false"
+    if [ ! -f "${targetFile}" ]; then
+        download="true"
+    elif ! SHAValid "${fileName}" "${targetDir}"; then
+        download="true"
+    fi
+    if [ "${download}" = "true" ]; then
+        downloadFile "${fileName}" "${targetDir}"
+    fi
+}
+
+ensureInPath() {
+    local fileName="${1}"
+    local targetDir="${2}"
+    local localName="$(determinLocalFileName "${fileName}")"
+    if echo "${PATH}" | grep -v "${targetDir}" &> /dev/null; then
+        PATH="${targetDir}:${PATH}"
+    fi
+    ensureFile "${fileName}" "${targetDir}"
+    chmod a+x "${targetFile}/${localName}"
 }
 
 loadEnvDir() {
