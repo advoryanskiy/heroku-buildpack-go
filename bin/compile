@@ -161,8 +161,10 @@ ensureGlide() {
         rm -rf "${cache}/glide"
         start "Installing glide ${glideVersion}"
             ensureFile "${gFile}" "${gPath}"
-            tar --strip-components=1 -zxf "${gPath}/${gFile}" -C "${gPath}"
+            local tarFile="${gPath}/${gFile}"
+            tar --strip-components=1 -zxf "${tarFile}" -C "${gPath}"
             chmod a+x "${gBin}"
+            rm -f "${tarFile}"
         finished
     fi
 }
