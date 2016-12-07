@@ -65,15 +65,15 @@ downloadFile() {
     pushd "${targetDir}" &> /dev/null
         start "Fetching ${localName}"
             ${CURL} -O "${BucketURL}/${fileName}"
+            if [ "${fileName}" != "${localName}" ]; then
+                mv "${fileName}" "${localName}"
+            fi
             if ! SHAValid "${fileName}" "${targetDir}"; then
                 err ""
                 err "Downloaded file (${fileName}) sha does not match recorded SHA"
                 err "Unable to continue."
                 err ""
                 exit 1
-            fi
-            if [ "${fileName}" != "${localName}" ]; then
-                mv "${fileName}" "${localName}"
             fi
         finished
     popd &> /dev/null
