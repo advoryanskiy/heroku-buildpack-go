@@ -113,7 +113,7 @@ ensureInPath() {
         PATH="${targetDir}:${PATH}"
     fi
     ensureFile "${fileName}" "${targetDir}"
-    chmod a+x "${targetFile}/${localName}"
+    chmod a+x "${targetFile}"
 }
 
 loadEnvDir() {
