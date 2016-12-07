@@ -87,7 +87,7 @@ downloadFile() {
   fi
   pushd "${targetDir}" &> /dev/null
     start "Fetching ${localName}"
-      ${CURL} -O "${BuketURL}/${fileName}"
+      ${CURL} -O "${BucketURL}/${fileName}"
       if [ "${fileName}" != "${localName}" ]; then
         mv "${fileName}" "${localName}"
       fi
