@@ -80,6 +80,7 @@ downloadFile() {
 }
 
 SHAValid() {
+    set -x
     local fileName="${1}"
     local targetDir="${2}"
     local localName="$(determinLocalFileName "${fileName}")"
