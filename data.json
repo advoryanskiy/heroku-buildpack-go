@@ -27,7 +27,7 @@
     ]
   },
   "Glide": {
-    "DefaultVersion": "v0.12.2"
+    "DefaultVersion": "v0.12.3"
   },
   "Govendor": {
     "DefaultVersion": "1.0.8"
