@@ -89,13 +89,13 @@ ensureFile() {
   fi
   local targetBin="${targetDir}/${localName}"
   if [ ! -x "${targetBin}" ]; then
-    downloadFile "${fielName}" "${targetDir}"
+    downloadFile "${fileName}" "${targetDir}"
   fi
   local sw="$(< "${FilesJSON}" jq -r '."'${fileName}'".SHA')"
   local sh="$(shasum -a256 "${targetBin}" | cut -d \  -f 1)"
   if [ "${sw}" != "${sh}" ]; then
     rm -f "${targetBin}"
-    downloadFile "${fielName}" "${targetDir}"
+    downloadFile "${fileName}" "${targetDir}"
   fi
 }
 
