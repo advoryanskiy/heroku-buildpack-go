@@ -341,20 +341,8 @@ case "${TOOL}" in
     fi
   ;;
   govendor)
-    govendorPath="${cache}/govendor/bin"
-    govendorBin="${govendorPath}/govendor"
-    if [ -d "${govendorBin}" ]; then
-      step "Using govendor v${GovendorVersion}"
-    else
-      rm -rf "${cache}/govendor"
-      mkdir -p "${govendorPath}"
-      start "Installing govendor v${GovendorVersion}"
-        $CURL "https://github.com/kardianos/govendor/releases/download/v${GovendorVersion}/govendor_linux_amd64" > "${govendorBin}"
-        chmod a+x "${govendorBin}"
-      finished
-    fi
+    ensureFile "govendor_linux_amd64" "${cache}/govendor/bin"
 
-    PATH="${govendorPath}:$PATH"
     eval "$(setupGOPATH ${name})"
     vendorJSON="${src}/vendor/vendor.json"
 
