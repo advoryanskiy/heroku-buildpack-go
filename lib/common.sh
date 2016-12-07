@@ -76,6 +76,29 @@ ensureJQ() {
   fi
 }
 
+ensureFile() {
+  local fileName="${1}"
+  local targetDir="${2}"
+  if echo "${PATH}" | grep -v "${targetDir}" &> /dev/null; then
+    PATH="${targetDir}:${PATH}"
+  fi
+  if [ "${fileName}" = "jq-linux64" ]; then #jq is special cased here because we can't jq until we have jq'
+    local localName="jq"
+  else
+    local localName="$(< "${FilesJSON}" jq -r '."'${fileName}'".LocalName | if . = null then "'${fileName}'" else . end')"
+  fi
+  local targetBin="${targetDir}/${localName}"
+  if [ ! -x "${targetBin}" ]; then
+    downloadFile "${fielName}" "${targetDir}"
+  fi
+  local sw="$(< "${FilesJSON}" jq -r '."'${fileName}'".SHA')"
+  local sh="$(shasum -a256 "${targetBin}" | cut -d \  -f 1)"
+  if [ "${sw}" != "${sh}" ]; then
+    rm -f "${targetBin}"
+    downloadFile "${fielName}" "${targetDir}"
+  fi
+}
+
 downloadFile() {
   local fileName="${1}"
   local targetDir="${2}"
