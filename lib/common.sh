@@ -108,6 +108,7 @@ ensureInPath() {
     local fileName="${1}"
     local targetDir="${2}"
     local localName="$(determinLocalFileName "${fileName}")"
+    local targetFile="${targetDir}/${localName}"
     if echo "${PATH}" | grep -v "${targetDir}" &> /dev/null; then
         PATH="${targetDir}:${PATH}"
     fi
