@@ -89,7 +89,6 @@ SHAValid() {
     local targetFile="${2}"
     local sh="$(shasum -a256 "${targetFile}" | cut -d \  -f 1)"
     <"${FilesJSON}" jq -e 'if ."'${fileName}'".SHA == "'${sh}'" then true else false end' &> /dev/null
-    return $?
 }
 
 ensureFile() {
