@@ -60,6 +60,7 @@ downloadFile() {
     local fileName="${1}"
     local targetDir="${2}"
     local localName="$(determinLocalFileName "${fileName}")"
+    local targetFile="${targetDir}/${localName}"
 
     mkdir -p "${targetDir}"
     pushd "${targetDir}" &> /dev/null
@@ -68,7 +69,7 @@ downloadFile() {
             if [ "${fileName}" != "${localName}" ]; then
                 mv "${fileName}" "${localName}"
             fi
-            if ! SHAValid "${fileName}" "${targetDir}"; then
+            if ! SHAValid "${fileName}" "${targetFile}"; then
                 err ""
                 err "Downloaded file (${fileName}) sha does not match recorded SHA"
                 err "Unable to continue."
@@ -80,11 +81,8 @@ downloadFile() {
 }
 
 SHAValid() {
-    set -x
     local fileName="${1}"
-    local targetDir="${2}"
-    local localName="$(determinLocalFileName "${fileName}")"
-    local targetFile="${targetDir}/${localName}"
+    local targetFile="${2}"
     local sh="$(shasum -a256 "${targetFile}" | cut -d \  -f 1)"
     <"${FilesJSON}" jq -e '."'${fileName}'".SHA | if . == "'${sh}'" then true else false end' &> /dev/null
 }
@@ -97,7 +95,7 @@ ensureFile() {
     local download="false"
     if [ ! -f "${targetFile}" ]; then
         download="true"
-    elif ! SHAValid "${fileName}" "${targetDir}"; then
+    elif ! SHAValid "${fileName}" "${targetFile}"; then
         download="true"
     fi
     if [ "${download}" = "true" ]; then
