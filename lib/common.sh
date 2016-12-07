@@ -80,10 +80,10 @@ downloadFile() {
   local fileName="${1}"
   local targetDir="${2}"
   mkdir -p "${targetDir}"
-  if [ "${fileName}" != "jq-linux64" ]; then #jq is special cased here because we can't jq until we have jq'
-    local localName="$(< "${FilesJSON}" jq -r '."'${fileName}'".LocalName | if . = null then "'${fileName}'" else . end')"
-  else
+  if [ "${fileName}" = "jq-linux64" ]; then #jq is special cased here because we can't jq until we have jq'
     local localName="jq"
+  else
+    local localName="$(< "${FilesJSON}" jq -r '."'${fileName}'".LocalName | if . = null then "'${fileName}'" else . end')"
   fi
   pushd "${targetDir}" &> /dev/null
     start "Fetching ${localName}"
