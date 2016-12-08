@@ -108,15 +108,21 @@ ensureFile() {
     fi
 }
 
-ensureInPath() {
-    local fileName="${1}"
-    local targetDir="${2}"
-    local localName="$(determinLocalFileName "${fileName}")"
-    local targetFile="${targetDir}/${localName}"
+addToPATH() {
+    local targetDir="${1}"
     if echo "${PATH}" | grep -v "${targetDir}" &> /dev/null; then
         PATH="${targetDir}:${PATH}"
     fi
-    ensureFile "${fileName}" "${targetDir}" "chmod a+x"
+}
+
+ensureInPath() {
+    local fileName="${1}"
+    local targetDir="${2}"
+    local xCmd="${3:-chmod a+x}"
+    local localName="$(determinLocalFileName "${fileName}")"
+    local targetFile="${targetDir}/${localName}"
+    addToPATH "${targetDir}"
+    ensureFile "${fileName}" "${targetDir}" "#{xCmd}"
 }
 
 loadEnvDir() {

@@ -16,8 +16,8 @@ DefaultGoVersion="$(<${DataJSON} jq -r '.Go.DefaultVersion')"
 GlideVersion="$(<${DataJSON} jq -r '.Glide.DefaultVersion')"
 GovendorVersion="$(<${DataJSON} jq -r '.Govendor.DefaultVersion')"
 GBVersion="$(<${DataJSON} jq -r '.GB.DefaultVersion')"
-PkgErrorsVersion="0.7.1"
-MercurialVersion="3.9"
+PkgErrorsVersion="$(<${DataJSON} jq -r '.PkgErrors.DefaultVersion')"
+MercurialVersion="$(<${DataJSON} jq -r '.HG.DefaultVersion')"
 # BazaarVersion="2.7.0"
 
 # For specified versions of Go we need to keep concurrency.sh
@@ -107,44 +107,23 @@ reportVer() {
 }
 
 ensureHG() {
-    local hVersion="${1}"
-    local thgp=$(mktemp -d)
-    local hgp="${cache}/hg/${hVersion}"
-    if [ -x "${hgp}/bin/hg" ]; then
-        step "Using hg v${hgv}"
+    local hgVersion="${1}"
+    local tmp=$(mktemp -d)
+    local hgPath="${cache}/hg/${hgVersion}"
+    if [ -x "${hgPath}/bin/hg" ]; then
+        step "Using hg v${hgVersion}"
     else
         rm -rf "${cache}/hg"
-        mkdir -p "${hgp}"
-        start "Installing hg ${hgv}"
-            $CURL "https://www.mercurial-scm.org/release/mercurial-${hgv}.tar.gz" | tar -zxf - --strip-components=1 -C ${thgp}
-            pushd "${thgp}" &> /dev/null
-                python setup.py install --force --home=${hgp} &> /dev/null
+        mkdir -p "${hgPath}"
+        start "Installing hg ${hgVersion}"
+            ensureFile "mercurial-${hgVersion}.tar.gz" "${tmp}" "tar -C ${tmp} --strip-components=1 -zxf"
+            pushd "${tmp}" &> /dev/null
+                python setup.py install --force --home="${hgPath}" &> /dev/null
             popd &> /dev/null
         finished
     fi
 
-    PATH="${hgp}/bin:${PATH}"
-}
-
-ensureBZR() {
-    local bzrv="${1}"
-    local bzrvs=$(echo ${bzrv} | cut -d . -f 1,2)
-    local tbzrp=$(mktemp -d)
-    local bzrp="${cache}/bzr/${bzrv}"
-    if [ -d "${bzrp}" ]; then
-        step "Using bzr v${bzrv}"
-    else
-        rm -rf "${cache}/bzr"
-        mkdir -p "${bzrp}"
-        start "Installing bzr ${bzrv}"
-            $CURL "https://launchpad.net/bzr/${bzrvs}/${bzrv}/+download/bzr-${bzrv}.tar.gz" | tar -zxf - --strip-components=1 -C ${tbzrp}
-            pushd "${tbzrp}" &> /dev/null
-                python setup.py install --force --home=${bzrp} &> /dev/null
-            popd &> /dev/null
-        finished
-    fi
-    PATH="${bzrp}/bin:${PATH}"
-    export PYTHONPATH="${bzrp}/lib/python:${PYTHONPATH}"
+    addToPATH "${hgPath}/bin"
 }
 
 ensureGlide() {
@@ -152,19 +131,101 @@ ensureGlide() {
     local gPath="${cache}/glide/${glideVersion}/bin"
     local gBin="${gPath}/glide"
     local gFile="glide-${glideVersion}-linux-amd64.tar.gz"
+    local targetFile="${gPath}/${gFile}"
 
     if [ -x "${gBin}" ]; then
         step "Using glide ${glideVersion}"
     else
         rm -rf "${cache}/glide"
         start "Installing glide ${glideVersion}"
-            ensureInPath "${gFile}" "${gPath}"
-            local tarFile="${gPath}/${gFile}"
-            tar --strip-components=1 -zxf "${tarFile}" -C "${gPath}"
+            ensureInPath "${gFile}" "${gPath}" "tar -C ${gPath} --strip-components=1 -zxf"
             chmod a+x "${gBin}"
-            rm -f "${tarFile}"
+            rm -f "${targetFile}"
         finished
     fi
+}
+
+ensureGB() {
+    local gbVersion="${1}"
+    GOPATH="${cache}/gb/${gbVersion}"
+    PATH="${GOPATH}/bin:${PATH}"
+    local pkgErrsFile="errors-${PkgErrorsVersion}.tar.gz"
+    local pkgErrorsPath="${GOPATH}/src/github.com/pkg/errors"
+    local gbFile="gb-${gbVersion}.tar.gz"
+    local gbPath="${GOPATH}/src/github.com/constabulary/gb"
+    if [ -d "${GOPATH}" ]; then
+        step "Using GB ${gbVersion}"
+    else
+        rm -rf "${cache}/gb/*"
+        ensureFile "${pkgErrsFile}" "${pkgErrorsPath}" "tar -C ${pkgErrorsPath} --strip-components=1 -zxf"
+        rm -f "${pkgErrorsPath}/${pkgErrsFile}"
+
+        ensureFile "${gbFile}" "${gbPath}" "tar -C ${gbPath} --strip-components=1 -zxf"
+        rm -f "${gbPath}/${gbFile}"
+
+        start "Installing GB v${GBVersion}"
+            pushd "${gbPath}" &> /dev/null
+                go install ./...
+            popd &> /dev/null
+        finished
+    fi
+}
+
+ensureGo() {
+    local goVersion="${1}"
+    local goPath="${cache}/${goVersion}/go"
+    local goFile=""
+    local txt="Installing Go version ${goVersion}"
+    if [ -d "${goPath}" ]; then
+        step "Using ${goVersion}"
+    else
+        rm -rf ${cache}/* #For a go version change, we delete everything
+        case "${goVersion}" in
+            devel*)
+                local bGoVersion="$(expandVer ${DefaultGoVersion})"
+                goFile="${bGoVersion}.linux-amd64.tar.gz"
+                goPath="${cache}/${bGoVersion}/go"
+                txt="Installing bootstrap Go version ${bGoVersion}"
+            ;;
+            go1)
+                goFile="go.go1.linux-amd64.tar.gz"
+            ;;
+            *)
+                goFile="${goVersion}.linux-amd64.tar.gz"
+            ;;
+        esac
+
+        start "${txt}"
+            ensureFile "${goFile}" "${goPath}" "tar -C ${goPath} --strip-components=1 -zxf"
+            rm -f "${goPath}/${goFile}"
+        finished
+
+        case "${goVersion}" in
+            devel*)
+                pushd "${cache}/${bGoVersion}" &> /dev/null
+                    mv go bgo
+                    local sha=$(echo ${goVersion} | cut -d - -f 2)  #assumes devel-<short sha> or devel-<full sha>
+                    local url="https://github.com/golang/go/archive/$sha.tar.gz"
+                    start "Downloading development Go version ${bGoVersion}"
+                        ${CURL} ${url} | tar zxf -
+                        mv go-${sha}* go
+                    finished
+                    step "Compiling development Go version ${goVersion}"
+                    pushd go/src &> /dev/null
+                        echo "devel +${sha} $(date "+%a %b %H:%M:%S %G %z")"> ../VERSION
+                        GOROOT_BOOTSTRAP=$(pushd ${cache}/${goVersion}/bgo > /dev/null; pwd; popd > /dev/null) ./make.bash 2>&1
+                    popd &> /dev/null
+                    go/bin/go version
+                    rm -rf bgo
+                popd &> /dev/null
+            ;;
+            *)
+            ;;
+        esac
+    fi
+
+    export GOROOT="${goPath}"
+    PATH="${goPath}/bin:${PATH}"
 }
 
 setGoVersionFromEnvironment() {
@@ -228,7 +289,6 @@ loadEnvDir "${env_dir}"
 determineTool
 
 ver=$(expandVer $ver)
-url=${GOURL:-$(urlFor $ver)}
 
 if [ -e "${build}/bin" -a ! -d "${build}/bin" ]; then
     err ""
@@ -239,39 +299,9 @@ fi
 
 reportVer $ver
 
-if [ -d "${cache}/${ver}/go" ]; then
-    step "Using ${ver}"
-else
-    rm -rf ${cache}/* # be sure not to build up cruft
-    mkdir -p "${cache}/${ver}"
-    pushd "${cache}/${ver}" &> /dev/null
-        start "Installing ${ver}"
-            ${CURL} ${url} | tar zxf -
-        finished
-        case "${ver}" in  # Rename 'go-<full sha>' (we have the short sha) to 'go'
-            devel*)
-                bver=$(expandVer ${DefaultGoVersion})
-                burl=$(urlFor ${bver})
-                start "Installing bootstrap Go version ${bver}"
-                    ${CURL} ${burl} | tar zxf -
-                finished
-                mv go bgo
-                mv go-$(echo ${ver} | cut -d - -f 2)* go
-                step "Compiling development Go version $ver..."
-                pushd go/src &> /dev/null
-                    echo "devel +$(echo ${ver} | cut -d - -f 2) $(date "+%a %b %H:%M:%S %G %z")"> ../VERSION
-                    GOROOT_BOOTSTRAP=$(pushd ${cache}/${ver}/bgo > /dev/null; pwd; popd > /dev/null) ./make.bash 2>&1
-                popd &> /dev/null
-                go/bin/go version
-                rm -rf bgo
-            ;;
-        esac
-    popd &> /dev/null
-fi
+ensureGo "${ver}"
 
 mkdir -p $build/bin
-export GOROOT="${cache}/${ver}/go"
-PATH="${PATH}:${GOROOT}/bin"
 
 # If $GO_LINKER_SYMBOL and GO_LINKER_VALUE are set, tell the linker to DTRT
 FLAGS=(-tags heroku)
@@ -359,9 +389,8 @@ case "${TOOL}" in
         go install -v "${FLAGS[@]}" ${pkgs} 2>&1
     ;;
     glide)
-        ensureGlide ${GlideVersion}
-        ensureHG ${MercurialVersion}
-        # ensureBZR ${BazaarVersion}
+        ensureGlide "${GlideVersion}"
+        ensureHG "${MercurialVersion}"
 
         # Do this before setupGOPATH as we need ${name} set first
         cd "${build}"
@@ -384,26 +413,7 @@ case "${TOOL}" in
         go install -v "${FLAGS[@]}" ${pkgs} 2>&1
     ;;
     gb)
-        GOPATH="${cache}/gb/${GBVersion}"
-        PATH="${GOPATH}/bin:${PATH}"
-        cp="${GOPATH}/src/github.com/constabulary"
-        pp="${GOPATH}/src/github.com/pkg"
-        if [ -d "${GOPATH}" ]; then
-            step "Using GB ${GBVersion}"
-        else
-            rm -rf "${cache}/gb/*" # cruft bad
-            mkdir -p "${pp}"
-            cd "${pp}"
-            $CURL "https://codeload.github.com/pkg/errors/tar.gz/v${PkgErrorsVersion}" | tar zxf -
-            mv "errors-${PkgErrorsVersion}" errors
-            mkdir -p "${cp}"
-            cd "${cp}"
-            start "Installing GB v${GBVersion}"
-                $CURL "https://codeload.github.com/constabulary/gb/tar.gz/v${GBVersion}" | tar zxf -
-                mv "gb-${GBVersion}" gb
-                go install ./...
-            finished
-        fi
+        ensureGB "${GBVersion}"
 
         cd $build
         step "Running: gb build ${FLAGS[@]}"

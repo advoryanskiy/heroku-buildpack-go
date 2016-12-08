@@ -35,7 +35,10 @@
   "GB": {
     "DefaultVersion": "0.4.3"
   },
-  "Mercurial": {
+  "PkgErrors": {
+    "DefaultVersion": "0.8.0"
+  },
+  "HG": {
     "DefaultVersion": "3.9"
   }
 }
