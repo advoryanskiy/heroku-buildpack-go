@@ -122,7 +122,7 @@ ensureInPath() {
     local localName="$(determinLocalFileName "${fileName}")"
     local targetFile="${targetDir}/${localName}"
     addToPATH "${targetDir}"
-    ensureFile "${fileName}" "${targetDir}" "#{xCmd}"
+    ensureFile "${fileName}" "${targetDir}" "${xCmd}"
 }
 
 loadEnvDir() {
