@@ -175,7 +175,7 @@ ensureGo() {
     local goVersion="${1}"
     local goPath="${cache}/${goVersion}/go"
     local goFile=""
-    local txt="Installing Go version ${goVersion}"
+    local txt="Installing ${goVersion}"
     if [ -d "${goPath}" ]; then
         step "Using ${goVersion}"
     else
@@ -185,7 +185,7 @@ ensureGo() {
                 local bGoVersion="$(expandVer ${DefaultGoVersion})"
                 goFile="${bGoVersion}.linux-amd64.tar.gz"
                 goPath="${cache}/${bGoVersion}/go"
-                txt="Installing bootstrap Go version ${bGoVersion}"
+                txt="Installing bootstrap ${bGoVersion}"
             ;;
             go1)
                 goFile="go.go1.linux-amd64.tar.gz"
@@ -195,10 +195,9 @@ ensureGo() {
             ;;
         esac
 
-        start "${txt}"
-            ensureFile "${goFile}" "${goPath}" "tar -C ${goPath} --strip-components=1 -zxf"
-            rm -f "${goPath}/${goFile}"
-        finished
+        step "${txt}"
+        ensureFile "${goFile}" "${goPath}" "tar -C ${goPath} --strip-components=1 -zxf"
+        rm -f "${goPath}/${goFile}"
 
         case "${goVersion}" in
             devel*)
