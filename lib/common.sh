@@ -87,8 +87,14 @@ downloadFile() {
 SHAValid() {
     local fileName="${1}"
     local targetFile="${2}"
-    local sh="$(shasum -a256 "${targetFile}" | cut -d \  -f 1)"
-    <"${FilesJSON}" jq -e 'if ."'${fileName}'".SHA == "'${sh}'" then true else false end' &> /dev/null
+    local sh=""
+    local sw="$(<"${FilesJSON}" jq -r '"'${fileName}'".SHA' &> /dev/null)"
+    if [ ${#sw} -eq 40 ]; then
+        sh="$(shasum "${targetFile}" | cut -d \  -f 1)"
+    else
+        sh="$(shasum -a256 "${targetFile}" | cut -d \  -f 1)"
+    fi
+    [ "${sh}" = "${sw}" ]
 }
 
 ensureFile() {
