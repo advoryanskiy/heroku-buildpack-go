@@ -273,11 +273,11 @@ testDetectGovendorExcluded() {
   assertCaptured "Go"
   assertCapturedSuccess
 }
-testCompuleGovendorExcluded() {
+testCompileGovendorExcluded() {
   compile "govendor-excluded"
   assertCaptured "Checking vendor/vendor.json file."
   assertCaptured "Installing go"
-  assertCaptured "Installing govendor"
+  assertCaptured "Fetching govendor"
   assertCaptured "Installing package '.' (default)"
   assertCaptured "Fetching any unsaved dependencies (govendor sync)"
   assertCaptured "Running: go install -v -tags heroku ."
