@@ -1,3 +1,10 @@
+# Fork of official [Heroku Buildpack for Go](https://github.com/heroku/heroku-buildpack-go)
+
+The fork contains 2 changes for better [GB][gb] support:
+
+* added checking of `vendor/manifest` file in `detect` script
+* added `gb vendor restore` command execution before `gb build ...` in `compile` script
+
 ![travis ci](https://travis-ci.org/heroku/heroku-buildpack-go.svg?branch=master)
 
 # Heroku Buildpack for Go
