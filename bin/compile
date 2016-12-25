@@ -497,6 +497,9 @@ case ${TOOL} in
         fi
 
         cd $build
+        step "Running: gb vendor restore"
+        gb vendor restore
+
         step "Running: gb build ${FLAGS[@]}"
         gb build "${FLAGS[@]}" 2>&1
 
