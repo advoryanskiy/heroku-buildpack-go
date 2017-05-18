@@ -470,8 +470,11 @@ case ${TOOL} in
 
         massagePkgSpecForVendor
 
-        step "Running: go install -v ${FLAGS[@]} ${pkgs}"
-        go install -v "${FLAGS[@]}" ${pkgs} 2>&1
+        #step "Running: go install -v ${FLAGS[@]} ${pkgs}"
+        #go install -v "${FLAGS[@]}" ${pkgs} 2>&1
+        
+        step "Running: go build ${FLAGS[@]}"
+        go build "${FLAGS[@]}" 2>&1
     ;;
     gb)
         GOPATH="${cache}/gb/${GBVersion}"
